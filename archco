@@ -1,0 +1,13 @@
+#!/bin/bash
+
+if [ "$1" = "" ]; then
+	echo "Usage: archco <package name> [<package name>]"
+	exit 1
+fi
+
+url=$(svn info | grep URL)
+url="${url##*URL: }"
+
+for i in "$@"; do
+     svn co "$url/$i"
+done

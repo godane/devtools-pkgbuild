@@ -1,0 +1,178 @@
+#!/bin/bash
+#
+#   Unlock: Removes stale lock files from pkgbuild.com chroots
+#
+#   Copyright (C) 2009, Daniel J Griffiths <ghost1227@archlinux.us>
+#
+#       This program is free software; you can redistribute it and/or modify
+#       it under the terms of the GNU General Public License as published by
+#       the Free Software Foundation; either version 2 of the License, or
+#       (at your option) any later version.
+#       
+#       This program is distributed in the hope that it will be useful,
+#       but WITHOUT ANY WARRANTY; without even the implied warranty of
+#       MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#       GNU General Public License for more details.
+#       
+#       You should have received a copy of the GNU General Public License
+#       along with this program; if not, write to the Free Software
+#       Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+#       MA 02110-1301, USA.
+
+VER="0.1"
+
+###################################
+### GENERAL FUNCTIONS           ###
+###################################
+
+usage(){
+	echo "Unlock v$VER: removes stale lock files from pkgbuild.com chroots"
+	echo
+	echo "USAGE: unlock [option] <arch> <chroot>"
+	echo
+	echo "OPTIONS:"
+	echo "   -m, --makechrootpkg  Remove makechrootpkg lock file"
+	echo "   -p, --pacman         Remove db.lck file from chroot"
+	echo "   -h, --help           Display this help message"
+	echo "   -v, --version        Display version information"
+}
+
+version(){
+	echo "Unlock v$VER: removes stale lock files from pkgbuild.com chroots"
+	echo "	Copyright (C) 2009 Daniel J Griffiths <ghost1227@archlinux.us>"
+	echo "	This program may be freely redistributed under"
+	echo "	the terms of the GNU General Public License"
+}
+
+chkroot(){
+	if [ "$EUID" != "0" ]; then
+		echo "This script must be run as root."
+		exit 1
+	fi
+}
+
+###################################
+### MAKECHROOTPKG CLEANUP       ###
+###################################
+mcleanup() {
+        if [[ "$ARCH" == "i686t" ]] || [[ "$ARCH" == "x86_64t" ]]; then
+                CARCH=$(echo $ARCH | sed -e 's|t|-testing|')
+		GARCH=$(echo $ARCH | sed -e 's|t||')
+        fi
+	if [ ! -f "/var/lock/make${CARCH}.${CHROOT}" ]; then
+		echo "Lockfile for chroot ${ARCH}.${CHROOT} not found."
+		echo "Nothing to cleanup."
+		exit 0
+	else
+		UCHK=$(ps aux | grep makechroot | grep ${GARCH})
+		if [ "$UCHK" != "" ]; then
+			echo "Error: An ${GARCH} chroot is currently in use."
+			exit 1
+		else
+			rm -f "/var/lock/make${CARCH}.${CHROOT}"
+			echo "Lockfile for chroot ${ARCH}.${CHROOT} removed."
+			exit 0
+		fi
+	fi
+}
+
+###################################
+### PACMAN CLEANUP              ###
+###################################
+pcleanup() {
+	if [[ "$ARCH" == "i686t" ]] || [[ "$ARCH" == "x86_64t" ]]; then
+		CARCH=$(echo $ARCH | sed -e 's|t|-testing|')
+	fi
+	if [ ! -f "/chroot/${CARCH}/${CHROOT}/root/var/lib/pacman/db.lck" ]; then
+		echo "Pacman lockfile for chroot ${ARCH}.${CHROOT} not found."
+		echo "Nothing to cleanup."
+		exit 0
+	else
+		if [ -f "/var/lock/make${ARCH}.${CHROOT}" ]; then
+			echo "Error: Chroot ${ARCH}.${CHROOT} is currently in use."
+			exit 1
+		else
+			rm -f "/chroot/${CARCH}/${CHROOT}/root/var/lib/pacman/db.lck"
+			echo "Pacman lockfile for chroot ${ARCH}.${CHROOT} removed."
+			exit 0
+		fi
+	fi
+}
+
+###################################
+### GET RUNTIME ARGUMENTS       ###
+###################################
+
+ARGLIST=$@
+while [ "$#" -ne "0" ]; do
+	case $1 in
+		--help| -h)
+		usage
+		exit 0
+		;;
+		--version| -v)
+		version
+		exit 0
+		;;
+		--makechrootpkg| -m)
+		shift
+		if [[ -z $2 ]]; then
+			echo "Error: missing argument(s), try 'unlock -h'"
+			exit 1
+		fi
+		case $1 in
+			[Ii]686|[Ii]686[Tt]|[Xx]86_64|[Xx]86_64[Tt])
+			ARCH=$(echo $1 | tr '[:upper:]' '[:lower:]')
+			;;
+			*)
+			echo "Error: ${1} is not a valid architecture."
+			exit 1
+			;;
+		esac
+		case $2 in
+			1|2)
+			CHROOT=$2
+			;;
+			*)
+			echo "Error: ${2} is not a valid chroot."
+			exit 1
+		esac
+		chkroot
+		mcleanup
+		;;
+		--pacman| -p)
+		shift
+		if [[ -z $2 ]]; then
+			echo "Error: missing argument(s), try 'unlock -h'"
+			exit 1
+		fi
+		case $1 in
+			[Ii]686|[Ii]686[Tt]|[Xx]86_64|[Xx]86_64[Tt])
+			ARCH=$(echo $1 | tr '[:upper:]' '[:lower:]')
+			;;
+			*)
+			echo "Error: ${1} is not a valid architecture."
+			exit 1
+			;;
+		esac
+                case $2 in
+                        1|2)
+                        CHROOT=$2
+                        ;;
+                        *)
+                        echo "Error: ${2} is not a valid chroot."
+                        exit 1
+                esac
+		chkroot
+		pcleanup
+		;;
+		*)
+		args[${#args[@]}]=$1
+		;;
+	esac
+	shift
+done
+
+usage
+exit 0
+

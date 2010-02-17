@@ -1,0 +1,107 @@
+#!/bin/bash
+#
+#   chrootstatus: checks the status of chroots on pkgbuild.com
+#
+#   Copyright (C) 2009, Daniel J Griffiths <ghost1227@archlinux.us>
+#
+#       This program is free software; you can redistribute it and/or modify
+#       it under the terms of the GNU General Public License as published by
+#       the Free Software Foundation; either version 2 of the License, or
+#       (at your option) any later version.
+#       
+#       This program is distributed in the hope that it will be useful,
+#       but WITHOUT ANY WARRANTY; without even the implied warranty of
+#       MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#       GNU General Public License for more details.
+#       
+#       You should have received a copy of the GNU General Public License
+#       along with this program; if not, write to the Free Software
+#       Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+#       MA 02110-1301, USA.
+
+echo
+echo "             i686     x86_64    i686/T   x86_64/T"
+echo " Chroot 1 [        ][        ][        ][        ]"
+echo " Chroot 2 [        ][        ][        ][        ]"
+
+if [ -f /var/lock/makei686.1 ]; then
+	tput sc ; tput cuu1 ; tput cuu1 ; tput cuf 12 ; echo "In Use" ; tput rc
+fi
+
+if [ -f /var/lock/makei686.2 ]; then
+	tput sc ; tput cuu1 ; tput cuf 12 ; echo "In Use" ; tput rc
+fi
+
+if [ -f /var/lock/makex86_64.1 ]; then
+	tput sc ; tput cuu1 ; tput cuu1 ; tput cuf 22 ; echo "In Use" ; tput rc
+fi
+
+if [ -f /var/lock/makex86_64.2 ]; then
+	tput sc ; tput cuu1 ; tput cuf 22 ; echo "In Use" ; tput rc
+fi
+
+if [ -f /var/lock/makei686-testing.1 ]; then
+	tput sc ; tput cuu1 ; tput cuu1 ; tput cuf 32 ; echo "In Use" ; tput rc
+fi
+
+if [ -f /var/lock/makei686-testing.2 ]; then
+	tput sc ; tput cuu1 ; tput cuf 32 ; echo "In Use" ; tput rc
+fi
+
+if [ -f /var/lock/makex86_64-testing.1 ]; then
+	tput sc ; tput cuu1 ; tput cuu1 ; tput cuf 42 ; echo "In Use" ; tput rc
+fi
+
+if [ -f /var/lock/makex86_64-testing.2 ]; then
+	tput sc ; tput cuu1 ; tput cuf 42 ; echo "In Use" ; tput rc
+fi
+
+echo
+
+if [ -f /var/lock/makei686.1 ]; then
+	tput cuf 1 ; echo "i686.1:"
+	tput cuf 2 ; cat /var/lock/makei686.1
+        echo
+fi
+
+if [ -f /var/lock/makei686.2 ]; then
+        tput cuf 1 ; echo "i686.2:"
+        tput cuf 2 ; cat /var/lock/makei686.2
+        echo
+fi
+
+if [ -f /var/lock/makex86_64.1 ]; then
+        tput cuf 1 ; echo "x86_64.1:"
+        tput cuf 2 ; cat /var/lock/makex86_64.1
+        echo
+fi
+
+if [ -f /var/lock/makex86_64.2 ]; then
+        tput cuf 1 ; echo "x86_64.2:"
+        tput cuf 2 ; cat /var/lock/makex86_64.2
+        echo
+fi
+
+if [ -f /var/lock/makei686-testing.1 ]; then
+        tput cuf 1 ; echo "i686-testing.1:"
+        tput cuf 2 ; cat /var/lock/makei686-testing.1
+        echo
+fi
+
+if [ -f /var/lock/makei686-testing.2 ]; then
+        tput cuf 1 ; echo "i686-testing.2:"
+        tput cuf 2 ; cat /var/lock/makei686-testing.2
+	echo
+fi
+
+if [ -f /var/lock/makex86_64-testing.1 ]; then
+        tput cuf 1 ; echo "x86_64-testing.1:"
+        tput cuf 2 ; cat /var/lock/makex86_64-testing.1
+	echo
+fi
+
+if [ -f /var/lock/makex86_64-testing.2 ]; then
+        tput cuf 1 ; echo "x86_64-testing.2:"
+        tput cuf 2 ; cat /var/lock/makex86_64-testing.2
+	echo
+fi
