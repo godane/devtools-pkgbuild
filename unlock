@@ -28,25 +28,25 @@ VER="0.1"
 usage(){
 	echo "Unlock v$VER: removes stale lock files from pkgbuild.com chroots"
 	echo
-	echo "USAGE: unlock [option] <arch> <chroot>"
+	echo 'USAGE: unlock [option] <arch> <chroot>'
 	echo
-	echo "OPTIONS:"
-	echo "   -m, --makechrootpkg  Remove makechrootpkg lock file"
-	echo "   -p, --pacman         Remove db.lck file from chroot"
-	echo "   -h, --help           Display this help message"
-	echo "   -v, --version        Display version information"
+	echo 'OPTIONS:'
+	echo '   -m, --makechrootpkg  Remove makechrootpkg lock file'
+	echo '   -p, --pacman         Remove db.lck file from chroot'
+	echo '   -h, --help           Display this help message'
+	echo '   -v, --version        Display version information'
 }
 
 version(){
 	echo "Unlock v$VER: removes stale lock files from pkgbuild.com chroots"
-	echo "	Copyright (C) 2009 Daniel J Griffiths <ghost1227@archlinux.us>"
-	echo "	This program may be freely redistributed under"
-	echo "	the terms of the GNU General Public License"
+	echo '	Copyright (C) 2009 Daniel J Griffiths <ghost1227@archlinux.us>'
+	echo '	This program may be freely redistributed under'
+	echo '	the terms of the GNU General Public License'
 }
 
 chkroot(){
 	if [ "$EUID" != "0" ]; then
-		echo "This script must be run as root."
+		echo 'This script must be run as root.'
 		exit 1
 	fi
 }
@@ -55,13 +55,13 @@ chkroot(){
 ### MAKECHROOTPKG CLEANUP       ###
 ###################################
 mcleanup() {
-        if [[ "$ARCH" == "i686t" ]] || [[ "$ARCH" == "x86_64t" ]]; then
+        if [[ "$ARCH" == 'i686t' ]] || [[ "$ARCH" == 'x86_64t' ]]; then
                 CARCH=$(echo $ARCH | sed -e 's|t|-testing|')
 		GARCH=$(echo $ARCH | sed -e 's|t||')
         fi
 	if [ ! -f "/var/lock/make${CARCH}.${CHROOT}" ]; then
 		echo "Lockfile for chroot ${ARCH}.${CHROOT} not found."
-		echo "Nothing to cleanup."
+		echo 'Nothing to cleanup.'
 		exit 0
 	else
 		UCHK=$(ps aux | grep makechroot | grep ${GARCH})
@@ -80,12 +80,12 @@ mcleanup() {
 ### PACMAN CLEANUP              ###
 ###################################
 pcleanup() {
-	if [[ "$ARCH" == "i686t" ]] || [[ "$ARCH" == "x86_64t" ]]; then
+	if [[ "$ARCH" == 'i686t' ]] || [[ "$ARCH" == 'x86_64t' ]]; then
 		CARCH=$(echo $ARCH | sed -e 's|t|-testing|')
 	fi
 	if [ ! -f "/chroot/${CARCH}/${CHROOT}/root/var/lib/pacman/db.lck" ]; then
 		echo "Pacman lockfile for chroot ${ARCH}.${CHROOT} not found."
-		echo "Nothing to cleanup."
+		echo 'Nothing to cleanup.'
 		exit 0
 	else
 		if [ -f "/var/lock/make${ARCH}.${CHROOT}" ]; then

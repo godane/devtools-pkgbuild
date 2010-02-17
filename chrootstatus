@@ -20,9 +20,9 @@
 #       MA 02110-1301, USA.
 
 echo
-echo "             i686     x86_64    i686/T   x86_64/T"
-echo " Chroot 1 [        ][        ][        ][        ]"
-echo " Chroot 2 [        ][        ][        ][        ]"
+echo '             i686     x86_64    i686/T   x86_64/T'
+echo ' Chroot 1 [        ][        ][        ][        ]'
+echo ' Chroot 2 [        ][        ][        ][        ]'
 
 if [ -f /var/lock/makei686.1 ]; then
 	tput sc ; tput cuu1 ; tput cuu1 ; tput cuf 12 ; echo "In Use" ; tput rc

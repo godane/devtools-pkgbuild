@@ -1,78 +1,78 @@
 #!/bin/bash
 
 if [ "$EUID" != "0" ]; then
-	echo "This script must be run as root."
+	echo 'This script must be run as root.'
 	exit 1
 fi
 
 if [ ! -f "/var/lock/makex86_64.1" ]; then
-	echo "updating x86_64 chroot 1"
+	echo 'updating x86_64 chroot 1'
 	echo "Locked by chrootupdate at $(date +'%H%M') on $(date +'%D')" >> /var/lock/makex86_64.1
 	mkarchroot -u /chroot/x86_64/1/root
 	rm -f /var/lock/makex86_64.1
 else
-	echo "x86_64 chroot 1 in use, skipping"
+	echo 'x86_64 chroot 1 in use, skipping'
 fi
 
 if [ ! -f "/var/lock/makex86_64.2" ]; then
-	echo "updating x86_64 chroot 2"
+	echo 'updating x86_64 chroot 2'
         echo "Locked by chrootupdate at $(date +'%H%M') on $(date +'%D')" >> /var/lock/makex86_64.2
 	mkarchroot -u /chroot/x86_64/2/root
 	rm -f /var/lock/makex86_64.2
 else
-	echo "x86_64 chroot 2 in use, skipping"
+	echo 'x86_64 chroot 2 in use, skipping'
 fi
 
 if [ ! -f "/var/lock/makex86_64-testing.1" ]; then
-	echo "updating x86_64 testing chroot 1"
+	echo 'updating x86_64 testing chroot 1'
         echo "Locked by chrootupdate at $(date +'%H%M') on $(date +'%D')" >> /var/lock/makex86_64-testing.1
 	mkarchroot -u /chroot/x86_64-testing/1/root
 	rm -f /var/lock/makex86_64-testing.1
 else
-	echo "x86_64 testing chroot 1 in use, skipping"
+	echo 'x86_64 testing chroot 1 in use, skipping'
 fi
 
 if [ ! -f "/var/lock/makex86_64-testing.2" ]; then
-	echo "updating x86_64 testing chroot 2"
+	echo 'updating x86_64 testing chroot 2'
         echo "Locked by chrootupdate at $(date +'%H%M') on $(date +'%D')" >> /var/lock/makex86_64-testing.2
 	mkarchroot -u /chroot/x86_64-testing/2/root
 	rm -f /var/lock/makex86_64-testing.2
 else
-	echo "x86_64 testing chroot 2 in use, skipping"
+	echo 'x86_64 testing chroot 2 in use, skipping'
 fi
 
 if [ ! -f "/var/lock/makei686.1" ]; then
-	echo "updating i686 chroot 1"
+	echo 'updating i686 chroot 1'
         echo "Locked by chrootupdate at $(date +'%H%M') on $(date +'%D')" >> /var/lock/makei686.1
 	mkarchroot -u /chroot/i686/1/root
 	rm -f /var/lock/makei686.1
 else
-	echo "i686 chroot 1 in use, skipping"
+	echo 'i686 chroot 1 in use, skipping'
 fi
 
 if [ ! -f "/var/lock/makei686.2" ]; then
-	echo "updating i686 chroot 2"
+	echo 'updating i686 chroot 2'
         echo "Locked by chrootupdate at $(date +'%H%M') on $(date +'%D')" >> /var/lock/makei686.2
 	mkarchroot -u /chroot/i686/2/root
 	rm -f /var/lock/makei686.2
 else
-	echo "i686 chroot 2 in use, skipping"
+	echo 'i686 chroot 2 in use, skipping'
 fi
 
 if [ ! -f "/var/lock/makei686-testing.1" ]; then
-	echo "updating i686 testing chroot 1"
+	echo 'updating i686 testing chroot 1'
         echo "Locked by chrootupdate at $(date +'%H%M') on $(date +'%D')" >> /var/lock/makei686-testing.1
 	mkarchroot -u /chroot/i686-testing/1/root
 	rm -f /var/lock/makei686-testing.1
 else
-	echo "i686 testing chroot 1 in use, skipping"
+	echo 'i686 testing chroot 1 in use, skipping'
 fi
 
 if [ ! -f "/var/lock/makei686-testing.2" ]; then
-	echo "updating i686 testing chroot 2"
+	echo 'updating i686 testing chroot 2'
         echo "Locked by chrootupdate at $(date +'%H%M') on $(date +'%D')" >> /var/lock/makei686-testing.2
 	mkarchroot -u /chroot/i686-testing/2/root
 	rm -f /var/lock/makei686-testing.2
 else
-	echo "i686 testing chroot 2 in use, skipping"
+	echo 'i686 testing chroot 2 in use, skipping'
 fi
