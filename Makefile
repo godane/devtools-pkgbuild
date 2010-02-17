@@ -49,3 +49,6 @@ uninstall:
 	rm $(DESTDIR)/usr/bin/chrootupdate
 	rm $(DESTDIR)/usr/bin/chrootstatus
 	rm $(DESTDIR)/usr/bin/unlock
+
+dist:
+	git archive --format=tar --prefix=devtools-pkgbuild-$(V)/ $(V) | gzip -9 > devtools-pkgbuild-$(V).tar.gz
