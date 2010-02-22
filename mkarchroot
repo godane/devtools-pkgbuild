@@ -26,19 +26,21 @@ usage ()
 	echo '    -f            Force overwrite of files in the working-dir'
 	echo '    -C <file>     Location of a pacman config file'
 	echo '    -M <file>     Location of a makepkg config file'
+	echo '    -m <file>     Location of a mirrorlist file'
 	echo '    -n            Do not copy config files into the chroot'
 	echo '    -c <dir>      Set pacman cache. Default: /var/cache/pacman/pkg'
 	echo '    -h            This message'
 	exit $1
 }
 
-while getopts 'r:ufnhC:M:c:' arg; do
+while getopts 'r:ufnhC:M:m:c:' arg; do
 	case "${arg}" in
 		r) RUN="$OPTARG" ;;
 		u) RUN='pacman -Syu' ;;
 		f) FORCE='y' ;;
 		C) pac_conf="$OPTARG" ;;
 		M) makepkg_conf="$OPTARG" ;;
+		m) mirrorlist="$OPTARG" ;;
 		n) NOCOPY='y' ;;
 		c) cache_dir="$OPTARG" ;;   
 		h|?) usage 0 ;;
@@ -128,6 +130,11 @@ else
 		exit 1
 	fi
 
+	if [ "$mirrorlist" != "" ]; then
+		mv /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.mk
+		cp $mirrorlist /etc/pacman.d/mirrorlist
+	fi
+
 	mkdir -p "${working_dir}/var/lib/pacman/"
 	mkdir -p "${working_dir}/etc/"
 
@@ -172,6 +179,10 @@ else
 	if [ ! -e "${working_dir}/.arch-chroot" ]; then
 		date +%s > "${working_dir}/.arch-chroot"
 	fi
+
+        if [ "$mirrorlist" != "" ]; then
+                mv /etc/pacman.d/mirrorlist.mk /etc/pacman.d/mirrorlist
+        fi
 	# }}}
 fi
 
