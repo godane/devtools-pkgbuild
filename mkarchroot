@@ -33,14 +33,13 @@ usage ()
 	exit $1
 }
 
-while getopts 'r:ufnhC:M:m:c:' arg; do
+while getopts 'r:ufnhC:M:c:' arg; do
 	case "${arg}" in
 		r) RUN="$OPTARG" ;;
 		u) RUN='pacman -Syu' ;;
 		f) FORCE='y' ;;
 		C) pac_conf="$OPTARG" ;;
 		M) makepkg_conf="$OPTARG" ;;
-		m) mirrorlist="$OPTARG" ;;
 		n) NOCOPY='y' ;;
 		c) cache_dir="$OPTARG" ;;   
 		h|?) usage 0 ;;
@@ -130,11 +129,6 @@ else
 		exit 1
 	fi
 
-	if [ "$mirrorlist" != "" ]; then
-		mv /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.mk
-		cp $mirrorlist /etc/pacman.d/mirrorlist
-	fi
-
 	mkdir -p "${working_dir}/var/lib/pacman/"
 	mkdir -p "${working_dir}/etc/"
 
@@ -179,10 +173,6 @@ else
 	if [ ! -e "${working_dir}/.arch-chroot" ]; then
 		date +%s > "${working_dir}/.arch-chroot"
 	fi
-
-        if [ "$mirrorlist" != "" ]; then
-                mv /etc/pacman.d/mirrorlist.mk /etc/pacman.d/mirrorlist
-        fi
 	# }}}
 fi
 
