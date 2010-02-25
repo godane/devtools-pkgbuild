@@ -1,5 +1,9 @@
 #!/bin/bash
 
+trap '' 2 20
+
+MUSER=$(echo $HOME | sed -e 's|/home/||')
+
 if [ "$EUID" != "0" ]; then
 	echo 'This script must be run as root.'
 	exit 1
@@ -76,3 +80,5 @@ if [ ! -f "/var/lock/makei686-testing.2" ]; then
 else
 	echo 'i686 testing chroot 2 in use, skipping'
 fi
+
+echo "Last update performed by $MUSER at $(date +'%H%M') on $(date +'%D')" >> /var/log/chrootupdate.log
