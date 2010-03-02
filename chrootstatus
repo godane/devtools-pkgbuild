@@ -18,90 +18,27 @@
 #       along with this program; if not, write to the Free Software
 #       Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #       MA 02110-1301, USA.
+chroots=('i686.1' 'x86_64.1' 'i686-testing.1' 'x86_64-testing.1' 
+	 'i686.2' 'x86_64.2' 'i686-testing.2' 'x86_64-testing.2')
+
+for i in ${chroots[@]}; do
+	if [ -f /var/lock/make${i} ]; then
+		chroot=$(echo -n "${i}" | sed -e 's|\.|_|' -e 's|-|_|')
+		IFS=$'\n' read -r ${chroot} <<< ' In Use '
+	else
+		chroot=$(echo -n "${i}" | sed -e 's|\.|_|' -e 's|-|_|')
+		IFS=$'\n' read -r ${chroot} <<< "        "
+	fi
+done
 
 echo
 echo '             i686     x86_64    i686/T   x86_64/T'
-echo ' Chroot 1 [        ][        ][        ][        ]'
-echo ' Chroot 2 [        ][        ][        ][        ]'
+echo " Chroot 1 [${i686_1}][${x86_64_1}][${i686_testing_1}][${x86_64_testing_1}]"
+echo " Chroot 2 [${i686_2}][${x86_64_2}][${i686_testing_2}][${x86_64_testing_2}]"
 
-if [ -f /var/lock/makei686.1 ]; then
-	tput sc ; tput cuu1 ; tput cuu1 ; tput cuf 12 ; echo "In Use" ; tput rc
-fi
-
-if [ -f /var/lock/makei686.2 ]; then
-	tput sc ; tput cuu1 ; tput cuf 12 ; echo "In Use" ; tput rc
-fi
-
-if [ -f /var/lock/makex86_64.1 ]; then
-	tput sc ; tput cuu1 ; tput cuu1 ; tput cuf 22 ; echo "In Use" ; tput rc
-fi
-
-if [ -f /var/lock/makex86_64.2 ]; then
-	tput sc ; tput cuu1 ; tput cuf 22 ; echo "In Use" ; tput rc
-fi
-
-if [ -f /var/lock/makei686-testing.1 ]; then
-	tput sc ; tput cuu1 ; tput cuu1 ; tput cuf 32 ; echo "In Use" ; tput rc
-fi
-
-if [ -f /var/lock/makei686-testing.2 ]; then
-	tput sc ; tput cuu1 ; tput cuf 32 ; echo "In Use" ; tput rc
-fi
-
-if [ -f /var/lock/makex86_64-testing.1 ]; then
-	tput sc ; tput cuu1 ; tput cuu1 ; tput cuf 42 ; echo "In Use" ; tput rc
-fi
-
-if [ -f /var/lock/makex86_64-testing.2 ]; then
-	tput sc ; tput cuu1 ; tput cuf 42 ; echo "In Use" ; tput rc
-fi
+for i in ${chroots[@]}; do
+	chroot=$(echo -n "${i}_msg" | sed -e 's|\.|_|' -e 's|-|_|')
+	[ -f /var/lock/make${i} ] && echo -e "\n ${i}:\n  $(cat /var/lock/make${i})"
+done
 
 echo
-
-if [ -f /var/lock/makei686.1 ]; then
-	tput cuf 1 ; echo "i686.1:"
-	tput cuf 2 ; cat /var/lock/makei686.1
-        echo
-fi
-
-if [ -f /var/lock/makei686.2 ]; then
-        tput cuf 1 ; echo "i686.2:"
-        tput cuf 2 ; cat /var/lock/makei686.2
-        echo
-fi
-
-if [ -f /var/lock/makex86_64.1 ]; then
-        tput cuf 1 ; echo "x86_64.1:"
-        tput cuf 2 ; cat /var/lock/makex86_64.1
-        echo
-fi
-
-if [ -f /var/lock/makex86_64.2 ]; then
-        tput cuf 1 ; echo "x86_64.2:"
-        tput cuf 2 ; cat /var/lock/makex86_64.2
-        echo
-fi
-
-if [ -f /var/lock/makei686-testing.1 ]; then
-        tput cuf 1 ; echo "i686-testing.1:"
-        tput cuf 2 ; cat /var/lock/makei686-testing.1
-        echo
-fi
-
-if [ -f /var/lock/makei686-testing.2 ]; then
-        tput cuf 1 ; echo "i686-testing.2:"
-        tput cuf 2 ; cat /var/lock/makei686-testing.2
-	echo
-fi
-
-if [ -f /var/lock/makex86_64-testing.1 ]; then
-        tput cuf 1 ; echo "x86_64-testing.1:"
-        tput cuf 2 ; cat /var/lock/makex86_64-testing.1
-	echo
-fi
-
-if [ -f /var/lock/makex86_64-testing.2 ]; then
-        tput cuf 1 ; echo "x86_64-testing.2:"
-        tput cuf 2 ; cat /var/lock/makex86_64-testing.2
-	echo
-fi
