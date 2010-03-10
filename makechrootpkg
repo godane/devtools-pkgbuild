@@ -273,7 +273,7 @@ if mkarchroot -r "/chrootbuild" "$copydir"; then
 	for l in "${copydir}"/build/*-{build,package}.log; do
 		[ -f "$l" ] && mv "$l" "${WORKDIR}"
 	done
-	chown -R "$MUSER:tu" "${WORKDIR}"
+	chown -R "$MUSER:dev" "${WORKDIR}"
 else
 	#just in case. We returned 1, make sure we fail
 	touch "${copydir}/build/BUILD_FAILED"
