@@ -9,76 +9,13 @@ if [ "$EUID" != "0" ]; then
 	exit 1
 fi
 
-if [ ! -f "/var/lock/makex86_64.1" ]; then
-	echo 'updating x86_64 chroot 1'
-	echo "Locked by chrootupdate at $(date +'%H%M') on $(date +'%D')" >> /var/lock/makex86_64.1
-	mkarchroot -u /chroot/x86_64/1/root
-	rm -f /var/lock/makex86_64.1
-else
-	echo 'x86_64 chroot 1 in use, skipping'
-fi
+echo 'updating PKGBUILD.com local database'
+yes | pacman -Syu
 
-if [ ! -f "/var/lock/makex86_64.2" ]; then
-	echo 'updating x86_64 chroot 2'
-        echo "Locked by chrootupdate at $(date +'%H%M') on $(date +'%D')" >> /var/lock/makex86_64.2
-	mkarchroot -u /chroot/x86_64/2/root
-	rm -f /var/lock/makex86_64.2
-else
-	echo 'x86_64 chroot 2 in use, skipping'
-fi
+echo 'updating x86_64 chroots'
+pacman -Syy --config /etc/pacman.x86_64
 
-if [ ! -f "/var/lock/makex86_64-testing.1" ]; then
-	echo 'updating x86_64 testing chroot 1'
-        echo "Locked by chrootupdate at $(date +'%H%M') on $(date +'%D')" >> /var/lock/makex86_64-testing.1
-	mkarchroot -u /chroot/x86_64-testing/1/root
-	rm -f /var/lock/makex86_64-testing.1
-else
-	echo 'x86_64 testing chroot 1 in use, skipping'
-fi
-
-if [ ! -f "/var/lock/makex86_64-testing.2" ]; then
-	echo 'updating x86_64 testing chroot 2'
-        echo "Locked by chrootupdate at $(date +'%H%M') on $(date +'%D')" >> /var/lock/makex86_64-testing.2
-	mkarchroot -u /chroot/x86_64-testing/2/root
-	rm -f /var/lock/makex86_64-testing.2
-else
-	echo 'x86_64 testing chroot 2 in use, skipping'
-fi
-
-if [ ! -f "/var/lock/makei686.1" ]; then
-	echo 'updating i686 chroot 1'
-        echo "Locked by chrootupdate at $(date +'%H%M') on $(date +'%D')" >> /var/lock/makei686.1
-	mkarchroot -u /chroot/i686/1/root
-	rm -f /var/lock/makei686.1
-else
-	echo 'i686 chroot 1 in use, skipping'
-fi
-
-if [ ! -f "/var/lock/makei686.2" ]; then
-	echo 'updating i686 chroot 2'
-        echo "Locked by chrootupdate at $(date +'%H%M') on $(date +'%D')" >> /var/lock/makei686.2
-	mkarchroot -u /chroot/i686/2/root
-	rm -f /var/lock/makei686.2
-else
-	echo 'i686 chroot 2 in use, skipping'
-fi
-
-if [ ! -f "/var/lock/makei686-testing.1" ]; then
-	echo 'updating i686 testing chroot 1'
-        echo "Locked by chrootupdate at $(date +'%H%M') on $(date +'%D')" >> /var/lock/makei686-testing.1
-	mkarchroot -u /chroot/i686-testing/1/root
-	rm -f /var/lock/makei686-testing.1
-else
-	echo 'i686 testing chroot 1 in use, skipping'
-fi
-
-if [ ! -f "/var/lock/makei686-testing.2" ]; then
-	echo 'updating i686 testing chroot 2'
-        echo "Locked by chrootupdate at $(date +'%H%M') on $(date +'%D')" >> /var/lock/makei686-testing.2
-	mkarchroot -u /chroot/i686-testing/2/root
-	rm -f /var/lock/makei686-testing.2
-else
-	echo 'i686 testing chroot 2 in use, skipping'
-fi
+echo 'updating i686 chroots'
+pacman -Syy --config /etc/pacman.i686
 
 echo "Last update performed by $MUSER at $(date +'%H%M') on $(date +'%D')" >> /var/log/chrootupdate.log
