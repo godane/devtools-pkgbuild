@@ -196,6 +196,8 @@ if [ -f "$HOME/.packager" ]; then
 	sed -i "s|PKGBUILD.com Build Server|$(head -n1 $HOME/.packager | sed s/\"//g)|" $copydir/etc/makepkg.conf
 fi
 
+# Set target CARCH as it might be used withing the PKGBUILD to select correct sources
+CARCH=$(eval $(grep '^CARCH=' "$copydir/etc/makepkg.conf"))
 # Copy PKGBUILD and sources
 source PKGBUILD
 cp PKGBUILD "$copydir/build/"
