@@ -61,6 +61,18 @@ usage ()
 	exit 1
 }
 
+rmlock() {
+	rm -f $CHROOTLOCK
+	while [ $maxqueue -ge 1 ]; do
+		if [ ! -f /var/lock/queue${maxqueue} ]; then
+			let maxqueue=maxqueue-1
+		else
+			rm -f /var/lock/queue${maxqueue}
+			break
+		fi
+	done
+}
+
 while getopts 'hcudta:I:l:' arg; do
 	case "${arg}" in
 		h) usage ;;
@@ -109,7 +121,10 @@ while [ $counter -le $maxqueue ]; do
 		touch /var/lock/queue${counter}
 		break
 	fi
-	[ $counter -gt $maxqueue ] && echo 'All queue slots are busy.'
+	if [ $counter -gt $maxqueue ]; then
+		echo 'All queue slots are busy.'
+		exit 0
+	fi
 done
 
 if [ "$usetesting" != "0" ]; then
@@ -121,14 +136,14 @@ chrootdir="$HOME/chroots/${makearch}"
 
 if [ ! -d "$chrootdir" ]; then
 	echo "No chroot dir defined, or invalid path '$chrootdir'"
-	unlock
+	rmlock
 	exit 1
 fi
 
 if [ ! -d "$chrootdir/root" ]; then
 	echo 'Missing chroot dir root directory.'
 	echo "Try using: mkarchroot $chrootdir/root base base-devel sudo"
-	unlock
+	rmlock
 	usage
 fi
 
@@ -233,7 +248,7 @@ export LANG=$LOCALE
 cd /build
 export HOME=/build
 sudo -u nobody makepkg $MAKEPKG_ARGS || touch BUILD_FAILED
-[ -f BUILD_FAILED ] && unlock && exit 1
+[ -f BUILD_FAILED ] && rmlock && exit 1
 which namcap &>/dev/null && namcap /build/PKGBUILD /pkgdest/*.pkg.tar.* > /build/namcap.log
 exit 0
 EOF
@@ -276,7 +291,7 @@ for f in "${copydir}"/srcdest/*; do
 	fi
 done
 
-unlock
+rmlock
 
 if [ -e "${copydir}/build/BUILD_FAILED" ]; then
 	echo "Build failed, check ${copydir}/build"
@@ -287,18 +302,6 @@ else
 fi	
 
 exit 0
-
-unlock() {
-	rm -f $CHROOTLOCK
-	while [ $maxqueue -ge 1 ]; do
-		if [ ! -f /var/lock/queue${maxqueue} ]; then
-			let maxqueue=maxqueue-1
-		else
-			rm -f /var/lock/queue${maxqueue}
-			break
-		fi
-	done		
-}
 
 # vim: set noexpandtab tabstop=8 shiftwidth=8 wrap:textwidth=132 autoindent
 # kate: indent-mode normal; indent-width 8; tab-indents on; tab-width 8; word-wrap on; word-wrap-column 132
