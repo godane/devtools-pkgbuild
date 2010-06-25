@@ -18,16 +18,19 @@ cp /etc/skel/bashrc /home/${UNAME}/.bashrc
 
 echo 'Setting up chroots...'
 mkdir -p /home/${UNAME}/chroots/{i686{,-testing},x86_64{,-testing}}
-mkarchroot -C /etc/skel/pacman.conf -M /etc/skel/mirrorlist_x86_64 /home/${UNAME}/chroots/x86_64/root base base-devel sudo
-mkarchroot -C /etc/skel/pacman-testing.conf -M /etc/skel/mirrorlist_x86_64 /home/${UNAME}/chroots/x86_64-testing/root base base-devel sudo
-mkarchroot -C /etc/skel/pacman.conf -M /etc/skel/mirrorlist_i686 /home/${UNAME}/chroots/i686/root base base-devel sudo
-mkarchroot -C /etc/skel/pacman-testing.conf -M /etc/skel/mirrorlist_i686 /home/${UNAME}/chroots/i686-testing/root base base-devel sudo
+mkarchroot -C /etc/skel/pacman.conf /home/${UNAME}/chroots/x86_64/root base base-devel sudo
+mkarchroot -C /etc/skel/pacman-testing.conf /home/${UNAME}/chroots/x86_64-testing/root base base-devel sudo
+mkarchroot -C /etc/skel/pacman.conf /home/${UNAME}/chroots/i686/root base base-devel sudo
+mkarchroot -C /etc/skel/pacman-testing.conf /home/${UNAME}/chroots/i686-testing/root base base-devel sudo
+install -m 600 /etc/skel/mirrorlist_i686 /home/${UNAME}/chroots/i686/root/etc/pacman.d/mirrorlist
+install -m 600 /etc/skel/mirrorlist_i686 /home/${UNAME}/chroots/i686-testing/root/etc/pacman.d/mirrorlist
+install -m 600 /etc/skel/mirrorlist_x86_64 /home/${UNAME}/chroots/x86_64/root/etc/pacman.d/mirrorlist
+install -m 600 /etc/skel/mirrorlist_x86_64 /home/${UNAME}/chroots/x86_64-testing/root/etc/pacman.d/mirrorlist
 
 echo 'Setting up web-accessible directory...'
 mkdir /srv/testing/${UNAME}
 
 echo 'Verifying permissions...'
-chmod 600 /home/${UNAME}/chroots/{i686{,-testing},x86_64{,-testing}}/root/etc/pacman.d/mirrorlist
 chown ${UNAME}:dev /home/${UNAME}/.bashrc
 chown ${UNAME}:dev /srv/testing/${UNAME}
 
