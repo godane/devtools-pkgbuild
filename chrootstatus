@@ -18,27 +18,17 @@
 #       along with this program; if not, write to the Free Software
 #       Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #       MA 02110-1301, USA.
-chroots=('i686.1' 'x86_64.1' 'i686-testing.1' 'x86_64-testing.1' 
-	 'i686.2' 'x86_64.2' 'i686-testing.2' 'x86_64-testing.2')
+queue=('1' '2' '3' '4')
+used=0
+total=0
 
-for i in ${chroots[@]}; do
-	if [ -f /var/lock/make${i} ]; then
-		chroot=$(echo -n "${i}" | sed -e 's|\.|_|' -e 's|-|_|')
-		IFS=$'\n' read -r ${chroot} <<< ' In Use '
-	else
-		chroot=$(echo -n "${i}" | sed -e 's|\.|_|' -e 's|-|_|')
-		IFS=$'\n' read -r ${chroot} <<< "        "
+for i in ${queue[@]}; do
+	let total=total+1
+	if [ -f /var/lock/queue${i} ]; then
+		let used=used+1
 	fi
 done
 
+open=$((${total} - ${used}))
 echo
-echo '             i686     x86_64    i686/T   x86_64/T'
-echo " Chroot 1 [${i686_1}][${x86_64_1}][${i686_testing_1}][${x86_64_testing_1}]"
-echo " Chroot 2 [${i686_2}][${x86_64_2}][${i686_testing_2}][${x86_64_testing_2}]"
-
-for i in ${chroots[@]}; do
-	chroot=$(echo -n "${i}_msg" | sed -e 's|\.|_|' -e 's|-|_|')
-	[ -f /var/lock/make${i} ] && echo -e "\n ${i}:\n  $(cat /var/lock/make${i})"
-done
-
-echo
+echo "${open} out of ${total} queue slots are available."
