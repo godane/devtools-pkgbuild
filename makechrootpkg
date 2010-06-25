@@ -248,7 +248,7 @@ export LANG=$LOCALE
 cd /build
 export HOME=/build
 sudo -u nobody makepkg $MAKEPKG_ARGS || touch BUILD_FAILED
-[ -f BUILD_FAILED ] && rmlock && exit 1
+[ -f BUILD_FAILED ] && exit 1
 which namcap &>/dev/null && namcap /build/PKGBUILD /pkgdest/*.pkg.tar.* > /build/namcap.log
 exit 0
 EOF
