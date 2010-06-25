@@ -23,7 +23,7 @@ mkarchroot -C /etc/skel/pacman-testing.conf /home/${UNAME}/chroots/x86_64-testin
 mkarchroot -C /etc/skel/pacman.conf /home/${UNAME}/chroots/i686/root base base-devel sudo
 mkarchroot -C /etc/skel/pacman-testing.conf /home/${UNAME}/chroots/i686-testing/root base base-devel sudo
 for i in i686 i686-testing x86_64 x86_64-testing; do
-	install -m 600 /etc/skel/mirrorlist_$(echo $i | sed -e 's|-testing||') /home/${UNAME}/chroots/${i}/root/etc/pacman.d/mirrorlist
+	install -m 600 -o nobody -g root /etc/skel/mirrorlist_$(echo $i | sed -e 's|-testing||') /home/${UNAME}/chroots/${i}/root/etc/pacman.d/mirrorlist
 	install -m 644 /etc/resolv.conf /home/${UNAME}/chroots/${i}/root/etc/resolv.conf
 done
 
