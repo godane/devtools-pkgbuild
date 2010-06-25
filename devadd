@@ -14,7 +14,7 @@ fi
 
 echo 'Adding user...'
 useradd -m -G dev -s /bin/bash $UNAME
-cp /etc/skel/.bashrc /home/${UNAME}/.bashrc
+cp /etc/skel/bashrc /home/${UNAME}/.bashrc
 
 echo 'Setting up chroots...'
 mkdir -p /home/${UNAME}/chroots/{i686{,-testing},x86_64{,-testing}}

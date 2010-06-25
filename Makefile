@@ -29,6 +29,14 @@ install:
 	install -m 755 chrootupdate $(DESTDIR)/usr/bin
 	install -m 755 chrootstatus $(DESTDIR)/usr/bin
 	install -m 755 unlock $(DESTDIR)/usr/bin
+	install -m 755 devadd $(DESTDIR)/usr/bin
+	#PKGBUILD.com specific configs
+	install -m 644 pacman.conf $(DESTDIR)/etc/skel/pacman.conf
+	install -m 644 pacman-testing.conf $(DESTDIR)/etc/skel/pacman-testing.conf
+	install -m 644 mirrorlist_i686 $(DESTDIR)/etc/skel/mirrorlist_i686
+	install -m 644 mirrorlist_x86_64 $(DESTDIR)/etc/skel/mirrorlist_x86_64
+	install -m 644 bashrc $(DESTDIR)/etc/skel/bashrc
+	echo 'Please setup the two mirrorlists in /etc/skell with your preferred mirrors.'
 
 uninstall:
 	# remove all files we installed
@@ -51,6 +59,12 @@ uninstall:
 	rm $(DESTDIR)/usr/bin/chrootupdate
 	rm $(DESTDIR)/usr/bin/chrootstatus
 	rm $(DESTDIR)/usr/bin/unlock
+	rm $(DESTDIR)/usr/bin/devadd
+	rm $(DESTDIR)/etc/skel/pacman.conf
+	rm $(DESTDIR)/etc/skel/pacman-testing.conf
+	rm $(DESTDIR)/etc/skel/mirrorlist_i686
+	rm $(DESTDIR)/etc/skel/mirrorlist_x86_64
+	rm $(DESTDIR)/etc/skel/bashrc
 
 dist:
 	git archive --format=tar --prefix=devtools-pkgbuild-$(V)/ $(V) | gzip -9 > devtools-pkgbuild-$(V).tar.gz
