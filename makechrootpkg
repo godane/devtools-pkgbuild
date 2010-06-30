@@ -128,11 +128,11 @@ while [ $counter -le $maxqueue ]; do
 done
 
 if [ "$usetesting" != "0" ]; then
-	makearch="${makearch}-testing"
+	makearch="$makearch-testing"
 fi
 
-CHROOTLOCK="$HOME/chroots/.${makearch}"
-chrootdir="$HOME/chroots/${makearch}"
+CHROOTLOCK="$HOME/chroots/.$makearch"
+chrootdir="$HOME/chroots/$makearch"
 
 if [ ! -d "$chrootdir" ]; then
 	echo "No chroot dir defined, or invalid path '$chrootdir'"
@@ -147,9 +147,18 @@ if [ ! -d "$chrootdir/root" ]; then
 	usage
 fi
 
+if [ -f "$CHROOTLOCK" ]; then
+	echo "Chroot $makearch is currently in use."
+	echo "If you are sure it is not in use, please remove the lockfile"
+	echo "($CHROOTLOCK)"
+	exit 1
+fi
+
 #Get rid of trailing / in chrootdir
 [ "$chrootdir" != "/" ] && chrootdir=$(echo $chrootdir | sed 's#/$##')
 copydir="$chrootdir/$COPY"
+
+echo "Building in chroot $chrootdir"
 
 umask 0022
 if [ ! -d "$copydir" -o "$clean_first" -eq "1" ]; then
