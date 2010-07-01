@@ -13,7 +13,7 @@
 FORCE='n'
 RUN=''
 RUNAS=''
-MAKEPKG_ARGS='-sr'
+MAKEPKG_ARGS='-sr --noconfirm'
 REPACK=''
 COPY='copy'
 WORKDIR=$PWD
