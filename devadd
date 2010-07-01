@@ -18,10 +18,10 @@ cp /usr/share/devadd/bashrc /home/${UNAME}/.bashrc
 
 echo 'Setting up chroots...'
 mkdir -p /home/${UNAME}/chroots/{i686{,-testing},x86_64{,-testing}}
-mkarchroot -C /usr/share/devadd/pacman.conf /home/${UNAME}/chroots/x86_64/root base base-devel sudo
-mkarchroot -C /usr/share/devadd/pacman-testing.conf /home/${UNAME}/chroots/x86_64-testing/root base base-devel sudo
-linux32 mkarchroot -C /usr/share/devadd/pacman.conf /home/${UNAME}/chroots/i686/root base base-devel sudo
-linux32 mkarchroot -C /usr/share/devadd/pacman-testing.conf /home/${UNAME}/chroots/i686-testing/root base base-devel sudo
+mkarchroot -C /usr/share/devadd/pacman.conf /home/${UNAME}/chroots/x86_64/root base base-devel sudo namcap
+mkarchroot -C /usr/share/devadd/pacman-testing.conf /home/${UNAME}/chroots/x86_64-testing/root base base-devel sudo namcap
+linux32 mkarchroot -C /usr/share/devadd/pacman.conf /home/${UNAME}/chroots/i686/root base base-devel sudo namcap
+linux32 mkarchroot -C /usr/share/devadd/pacman-testing.conf /home/${UNAME}/chroots/i686-testing/root base base-devel sudo namcap
 for i in i686 i686-testing x86_64 x86_64-testing; do
 	install -m 600 -o nobody -g root /usr/share/devadd/mirrorlist /home/${UNAME}/chroots/${i}/root/etc/pacman.d/mirrorlist
 	install -m 644 /etc/resolv.conf /home/${UNAME}/chroots/${i}/root/etc/resolv.conf
