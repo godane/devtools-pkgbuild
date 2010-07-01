@@ -107,7 +107,6 @@ if [ ! -f PKGBUILD ]; then
 	echo 'This must be run in a directory containing a PKGBUILD.'
 	exit 1
 fi
-source PKGBUILD
 
 if [ "$makearch" != 'i686' ] && [ "$makearch" != 'x86_64' ]; then
 	echo "$makearch is not a valid architecture, defaulting to x86_64."
