@@ -24,7 +24,6 @@ usage ()
 	echo '    -r <app>      Run "app" within the context of the chroot'
 	echo '    -u            Update the chroot via pacman'
 	echo '    -f            Force overwrite of files in the working-dir'
-	echo '    -s            Set arch=i686 (x86_64 systems only)'
 	echo '    -C <file>     Location of a pacman config file'
 	echo '    -M <file>     Location of a makepkg config file'
 	echo '    -n            Do not copy config files into the chroot'
@@ -33,12 +32,11 @@ usage ()
 	exit $1
 }
 
-while getopts 'r:ufnhsC:M:c:' arg; do
+while getopts 'r:ufnhC:M:c:' arg; do
 	case "${arg}" in
 		r) RUN="$OPTARG" ;;
 		u) RUN='pacman -Syu' ;;
 		f) FORCE='y' ;;
-		s) SARCH='y' ;;
 		C) pac_conf="$OPTARG" ;;
 		M) makepkg_conf="$OPTARG" ;;
 		n) NOCOPY='y' ;;
@@ -130,13 +128,6 @@ else
 		exit 1
 	fi
 
-	if [ "$SARCH" == 'y' ] && [ `arch` == 'x86_64' ]; then
-		sed -i 's|x86_64|i686|g' /etc/pacman.d/mirrorlist
-	elif [ "$SARCH" == 'y' ] && [ `arch` != 'x86_64' ]; then
-		echo 'error: the -s option is only available on 64bit systems'
-		exit 1
-	fi
-
 	mkdir -p "${working_dir}/var/lib/pacman/"
 	mkdir -p "${working_dir}/etc/"
 
@@ -181,9 +172,5 @@ else
 	if [ ! -e "${working_dir}/.arch-chroot" ]; then
 		date +%s > "${working_dir}/.arch-chroot"
 	fi
-
-        if [ "$SARCH" == "y" ]; then
-                sed -i 's|i686|x86_64|g' /etc/pacman.d/mirrorlist
-        fi
 	# }}}
 fi
