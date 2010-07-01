@@ -12,6 +12,7 @@
 
 FORCE='n'
 RUN=''
+RUNAS=''
 MAKEPKG_ARGS='-sr'
 REPACK=''
 COPY='copy'
@@ -126,6 +127,8 @@ while [ $counter -le $maxqueue ]; do
 	fi
 done
 
+[ "$makearch" == "i686" ] && RUNAS="linux32"
+
 if [ "$usetesting" != "0" ]; then
 	makearch="$makearch-testing"
 fi
@@ -170,7 +173,7 @@ fi
 if [ -n "$install_pkg" ]; then
 	pkgname="$(basename "$install_pkg")"
 	cp "$install_pkg" "$copydir/$pkgname"
-	mkarchroot -r "pacman -U /$pkgname" "$copydir"
+	$RUNAS mkarchroot -r "pacman -U /$pkgname" "$copydir"
 	ret=$?
 	rm "$copydir/$pkgname"
 	#exit early, we've done all we need to
@@ -178,7 +181,7 @@ if [ -n "$install_pkg" ]; then
 fi
 
 if [ $update_first -eq 1 ]; then
-	mkarchroot -r 'pacman -Syu --noconfirm' "$copydir"
+	$RUNAS mkarchroot -r 'pacman -Syu --noconfirm' "$copydir"
 fi
 
 [ -d "$copydir/build" ] || mkdir "$copydir/build"
@@ -189,9 +192,9 @@ if [ "$REPACK" != "1" ]; then
 fi
 
 # Get SRC/PKGDEST from makepkg.conf
-SRCDEST=$(grep '^SRCDEST=' ~/.makepkg.conf | cut -d= -f2)
+[ -f $HOME/.makepkg.conf ] && SRCDEST=$(grep '^SRCDEST=' $HOME/.makepkg.conf | cut -d= -f2)
 [ -z ${SRCDEST} ] && SRCDEST=$(grep '^SRCDEST=' /etc/makepkg.conf | cut -d= -f2)
-PKGDEST=$(grep '^PKGDEST=' ~/.makepkg.conf | cut -d= -f2)
+[ -f $HOME/.makepkg.conf ] && PKGDEST=$(grep '^PKGDEST=' $HOME/.makepkg.conf | cut -d= -f2)
 [ -z ${PKGDEST} ] && PKGDEST=$(grep '^PKGDEST=' /etc/makepkg.conf | cut -d= -f2)
 
 [ -d "$copydir/pkgdest" ] || mkdir "$copydir/pkgdest"
@@ -250,7 +253,7 @@ fi
 export LANG=$LOCALE
 cd /build
 export HOME=/build
-sudo -u nobody makepkg $MAKEPKG_ARGS || touch BUILD_FAILED
+sudo -u nobody $RUNAS makepkg $MAKEPKG_ARGS || touch BUILD_FAILED
 [ -f BUILD_FAILED ] && exit 1
 which namcap &>/dev/null && namcap /build/PKGBUILD /pkgdest/*.pkg.tar.* > /build/namcap.log
 exit 0
@@ -258,7 +261,7 @@ EOF
 ) > "$copydir/chrootbuild"
 chmod +x "$copydir/chrootbuild"
 
-if mkarchroot -r "/chrootbuild" "$copydir"; then
+if $RUNAS mkarchroot -r "/chrootbuild" "$copydir"; then
 	for pkgfile in "${copydir}"/pkgdest/*.pkg.tar.*; do
 		[ -e "$pkgfile" ] || continue
 		if [ "$add_to_db" -eq "1" ]; then
