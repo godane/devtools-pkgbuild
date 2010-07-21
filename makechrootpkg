@@ -192,9 +192,11 @@ if [ "$REPACK" != "1" ]; then
 fi
 
 # Get SRC/PKGDEST from makepkg.conf
-#[ -f $HOME/.makepkg.conf ] && SRCDEST=$(grep '^SRCDEST=' $HOME/.makepkg.conf | cut -d= -f2)
+#if [ -f ~/.makepkg.conf ]; then
+#	SRCDEST=$(grep '^SRCDEST=' ~/.makepkg.conf | cut -d= -f2)
+#	PKGDEST=$(grep '^PKGDEST=' ~/.makepkg.conf | cut -d= -f2)
+#fi
 [ -z ${SRCDEST} ] && SRCDEST=$(grep '^SRCDEST=' /etc/makepkg.conf | cut -d= -f2)
-#[ -f $HOME/.makepkg.conf ] && PKGDEST=$(grep '^PKGDEST=' $HOME/.makepkg.conf | cut -d= -f2)
 [ -z ${PKGDEST} ] && PKGDEST=$(grep '^PKGDEST=' /etc/makepkg.conf | cut -d= -f2)
 
 [ -d "$copydir/pkgdest" ] || mkdir "$copydir/pkgdest"
