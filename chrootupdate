@@ -30,7 +30,7 @@ fi
 if [ ! -f "$HOME/chroots/.i686" ]; then
 	echo 'updating i686 chroot'
 	touch $HOME/chroots/.i686
-	mkarchroot -u $HOME/chroots/i686/root
+	linux32 mkarchroot -u $HOME/chroots/i686/root
 	rm -f $HOME/chroots/.i686
 else
 	echo 'i686 chroot in use, skipping'
@@ -39,7 +39,7 @@ fi
 if [ ! -f "$HOME/chroots/.i686-testing" ]; then
 	echo 'updating i686 testing chroot'
 	touch $HOME/chroots/.i686-testing
-	mkarchroot -u $HOME/chroots/i686-testing/root
+	linux32 mkarchroot -u $HOME/chroots/i686-testing/root
 	rm -f $HOME/chroots/.i686-testing
 else
 	echo 'i686 testing chroot in use, skipping'
