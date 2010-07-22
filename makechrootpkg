@@ -30,6 +30,8 @@ maxqueue='4'
 APPNAME=$(basename "${0}")
 MUSER=$(echo $HOME | sed -e 's|/home/||')
 
+trap rmlock 2 20
+
 usage ()
 {
 	echo "usage ${APPNAME} [options] -r <chrootdir> [--] [makepkg args]"
