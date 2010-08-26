@@ -13,7 +13,7 @@
 FORCE='n'
 RUN=''
 RUNAS=''
-MAKEPKG_ARGS='-s'
+MAKEPKG_ARGS='-sr'
 REPACK=''
 COPY='copy'
 WORKDIR=$PWD
@@ -58,6 +58,7 @@ usage ()
 	echo '-d         Add the package to a local db at /repo after building'
 	echo '-t         Enable the testing repo'
 	echo '-a <arch>  Specify the architecture to build for'
+	echo '-r <dir>   The chroot dir to use'
 	echo '-I <pkg>   Install a package into the working copy of the chroot'
 	echo '-l <layer> The directory to use as the working copy of the chroot'
 	echo '           Useful for maintain multiple copies. Default: copy'
@@ -76,7 +77,7 @@ rmlock() {
 	done
 }
 
-while getopts 'hcudta:I:l:' arg; do
+while getopts 'hcudta:r:I:l:' arg; do
 	case "${arg}" in
 		h) usage ;;
 		c) clean_first=1 ;;
@@ -84,6 +85,7 @@ while getopts 'hcudta:I:l:' arg; do
 		d) add_to_db=1 ;;
 		t) usetesting=1 ;;
 		a) makearch="$OPTARG" ;;
+		r) chrootdir="$OPTARG" ;;
 		I) install_pkg="$OPTARG" ;;
 		l) COPY="$OPTARG" ;;
 		*) MAKEPKG_ARGS="$MAKEPKG_ARGS -$arg $OPTARG" ;;
@@ -135,8 +137,14 @@ if [ "$usetesting" != '0' ]; then
 	makearch="$makearch-testing"
 fi
 
-CHROOTLOCK="$HOME/chroots/.$makearch"
-chrootdir="$HOME/chroots/$makearch"
+if [ "$chrootdir" = "" ]; then
+	CHROOTLOCK="$HOME/chroots/.$makearch"
+	chrootdir="$HOME/chroots/$makearch"
+else
+	chrootdir_orig="$chrootdir"
+	CHROOTLOCK="$chrootdir_orig/.$makearch"
+	chrootdir="$chrootdir_orig/$makearch"
+fi
 
 if [ ! -d "$chrootdir" ]; then
 	echo "No chroot dir defined, or invalid path '$chrootdir'"
