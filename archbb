@@ -1,0 +1,621 @@
+#!/bin/bash
+
+
+if [ "$EUID" != "0" ]; then
+	echo 'This script must be run as root.'
+	exit 1
+fi
+
+# Source makepkg.conf; fail if it is not found
+if [ -r '/etc/makepkg.conf' ]; then
+	source '/etc/makepkg.conf'
+else
+	echo '/etc/makepkg.conf not found!'
+	exit 1
+fi
+
+# Source user-specific makepkg.conf overrides
+if [ -r ~/.makepkg.conf ]; then
+	source ~/.makepkg.conf
+fi
+
+if [ -r '/etc/abs.conf' ]; then
+	source '/etc/abs.conf'
+else
+	echo '/etc/abs.conf not found'
+	exit 1
+fi
+
+if [ -r ~/.abs.conf ]; then
+	source ~/abs.conf
+fi
+
+abort() {
+	echo ${1:-'Cancelled'}
+	exit 1
+}
+
+die () {
+	echo $@ >&2
+	exit 1
+}
+
+bump_pkgrel () {
+	# Get the current pkgrel from SVN and update the working copy with it
+	# This prevents us from incrementing out of control :)
+	pbuild='.svn/text-base/PKGBUILD.svn-base'
+	oldrel=$(grep 'pkgrel=' $pbuild | cut -d= -f2)
+
+	#remove decimals
+	rel=$(echo $oldrel | cut -d. -f1)
+    
+	newrel=$(($rel + 1))
+
+	sed -i "s/pkgrel=$oldrel/pkgrel=$newrel/" PKGBUILD 
+}
+
+pkg_from_pkgbuild () {
+	# we want the sourcing to be done in a subshell so we don't pollute our current namespace
+	export CARCH PKGEXT
+	(. PKGBUILD; echo "$pkgname-$pkgver-$pkgrel-$CARCH$PKGEXT")
+}
+
+getpkgfile() {
+	if [[ ${#} -ne 1 ]]; then
+		echo 'ERROR: No canonical package found!' >&2
+		exit 1
+	elif [ ! -f "${1}" ]; then
+		echo "ERROR: Package ${1} not found!" >&2
+		exit 1
+	fi
+
+	echo ${1}
+}
+
+# Usage: archrelease <repo>
+archrelease () {
+	if [ ! -f PKGBUILD ]; then
+		abort 'archrelease: PKGBUILD not found'
+	fi
+
+	if [ "$(basename $(readlink -f .))" != 'trunk' ]; then
+		abort 'archrelease: Not in a package trunk dir'
+	fi
+
+	if [ ! -z "$(svn status -q)" ]; then
+		abort 'archrelease: You have not committed your changes yet!'
+	fi
+
+	echo -n 'releasing package...'
+	pushd .. >/dev/null
+
+	if [ -d "repos/${1}" ]; then
+		svn rm --force -q "repos/${1}"
+		svn commit -q -m "archrelease: remove ${1}" || abort 'archrelease: Cancelled'
+	fi
+
+	svn copy -q -r HEAD trunk "repos/${1}"
+	svn commit -q -m "archrelease: copy trunk to ${1}" || abort 'archrelease: Cancelled'
+	popd >/dev/null
+	echo 'done'
+}
+
+# Usage: archco <package name> [<package name>]
+archco () {
+	if [ "$1" = '' ]; then
+		echo 'Usage: archco <package name> [<package name>]'
+		exit 1
+	fi
+
+	for i in "$@"; do
+		svn co svn+ssh://gerolde.archlinux.org/srv/svn-packages/$i 
+	done
+}
+
+# Usage: communityco <package name> [<package name>]
+communityco () {
+	if [ "$1" = '' ]; then
+		echo 'Usage: communityco <package name> [<package name>]'
+		exit 1
+	fi
+
+	for i in "$@"; do
+		svn co svn+ssh://aur.archlinux.org/srv/svn-packages/$i
+	done
+}
+
+# Usage: archrm <path to checkout>
+archrm () {
+	if [ "$1" = '' ]; then
+		echo 'Usage: archrm <path to checkout>'
+		exit 1
+	fi
+	
+	rm -rf $1
+}
+
+
+devadd() {
+	if [ -z $1 ]; then
+		echo 'No username specified.'
+		exit 1
+	else
+		local UNAME=$1
+	fi
+
+	echo 'Adding user...'
+	useradd -m -G dev -s /bin/bash $UNAME
+	cp /usr/share/devadd/bashrc /home/${UNAME}/.bashrc
+
+	echo 'Setting up chroots...'
+	mkdir -p /home/${UNAME}/chroots/{i686{,-testing},x86_64{,-testing}}
+	mkarchroot -C /usr/share/devadd/pacman.conf /home/${UNAME}/chroots/x86_64/root base base-devel sudo namcap abs
+	mkarchroot -C /usr/share/devadd/pacman-testing.conf /home/${UNAME}/chroots/x86_64-testing/root base base-devel sudo namcap abs
+	linux32 mkarchroot -C /usr/share/devadd/pacman.conf /home/${UNAME}/chroots/i686/root base base-devel sudo namcap abs
+	linux32 mkarchroot -C /usr/share/devadd/pacman-testing.conf /home/${UNAME}/chroots/i686-testing/root base base-devel sudo namcap abs
+	for i in i686 i686-testing x86_64 x86_64-testing; do
+		install -m 600 -o nobody -g root /usr/share/devadd/mirrorlist /home/${UNAME}/chroots/${i}/root/etc/pacman.d/mirrorlist
+		install -m 644 /etc/resolv.conf /home/${UNAME}/chroots/${i}/root/etc/resolv.conf
+		sed -i 's|#MAKEFLAGS="-j2"|MAKEFLAGS="-j5"|' /home/${UNAME}/chroots/${i}/root/etc/makepkg.conf
+	done
+
+	echo 'Setting up web-accessible directory...'
+	mkdir /srv/testing/${UNAME}
+
+	echo 'Verifying permissions...'
+	chown ${UNAME}:dev /home/${UNAME}/.bashrc
+	chown ${UNAME}:dev /srv/testing/${UNAME}
+
+	echo 'Operation complete.'
+}
+
+checkpkg () {
+	if [ ! -f PKGBUILD ]; then
+		echo 'This must be run in the directory of a built package.'
+		exit 1
+	fi
+
+	source PKGBUILD
+	if [ "$arch" == 'any' ]; then
+		CARCH='any'
+	fi
+
+	local STARTDIR=$(pwd)
+	local TEMPDIR=$(mktemp -d /tmp/checkpkg-script.XXXX)
+	cd $TEMPDIR
+
+	for _pkgname in ${pkgname[@]}; do
+		pkgfile=${_pkgname}-${pkgver}-${pkgrel}-${CARCH}${PKGEXT}
+		oldstylepkgfile=${_pkgname}-${pkgver}-${pkgrel}${PKGEXT}
+
+		if [ -f "$STARTDIR/$pkgfile" ]; then
+			cp "$STARTDIR/$pkgfile" .
+		elif [ -f "$PKGDEST/$pkgfile" ]; then
+			cp "$PKGDEST/$pkgfile" .
+		elif [ -f "$STARTDIR/$oldstylepkgfile" ]; then
+			cp "$STARTDIR/$oldstylepkgfile" .
+		elif [ -f "$PKGDEST/$oldstylepkgfile" ]; then
+			cp "$PKGDEST/$oldstylepkgfile" .
+		else
+			echo "File \"$pkgfile\" doesn't exist"
+			exit 1
+		fi
+
+		local tmp=`pacman -Spd --noconfirm $_pkgname`
+
+		if [ $? -ne 0 ]; then
+			echo "Couldn't download previous package for $_pkgname."
+			exit 1
+		fi
+
+		pkgurl=`echo $tmp | rev | cut -d ' ' -f 1 | rev`
+
+		#oldpkg=`strip_url $pkgurl`
+		oldpkg=$(echo $pkgurl | sed 's|^.*://.*/||g')
+
+		if [ "$(basename $oldpkg)" = "$(basename $pkgfile)" ]; then
+			echo "The built package ($_pkgname) is the one in the repo right now!"
+			exit 1
+		fi
+
+		if [ ! -f $oldpkg ]; then
+			if echo $pkgurl | grep '^file:///' > /dev/null 2>&1; then
+				cp `echo $pkgurl | sed 's#^file://##'` .
+			elif [ -f $PKGDEST/$oldpkg ]; then
+				cp $PKGDEST/$oldpkg .
+			else
+				wget --quiet $pkgurl
+			fi
+		fi
+
+		bsdtar tf $oldpkg > filelist-$_pkgname-old
+		bsdtar tf "$pkgfile" > filelist-$_pkgname
+
+		sort -o filelist-$_pkgname filelist-$_pkgname
+		sort -o filelist-$_pkgname-old filelist-$_pkgname-old
+
+		diff filelist-$_pkgname-old filelist-$_pkgname
+
+		if diff filelist-$_pkgname-old filelist-$_pkgname | grep '\.so\.' > /dev/null 2>&1; then
+			mkdir -p pkg
+			cd pkg
+			bsdtar xf "$pkgfile" > /dev/null
+			for i in `diff ../filelist-$_pkgname-old ../filelist-$_pkgname | grep \> | grep \.so\. | awk '{print $2}'`; do
+				echo -n "${i}: "
+				objdump -p $i | grep SONAME
+			done
+		else
+			echo "No soname differences for $_pkgname."
+		fi
+	done
+
+	echo "Files saved to $TEMPDIR"
+}
+
+# usage: finddeps <depname>
+# 
+# Find packages that depend on a given depname.
+# Run this script from the top-level directory of your ABS tree.
+finddeps () {
+	local match=$1
+	local tld=$(pwd)
+
+	for d in $(find . -type d); do
+		cd $d
+		if [ -f PKGBUILD ]; then
+			unset pkgname depends makedepends
+			. PKGBUILD
+			for dep in "${depends[@]}"; do
+				# lose the version comaparator, if any
+				depname=${dep%%[<>=]*}
+				if [ "$depname" = "$match" ]; then
+					echo "$d (depends)"
+				fi
+			done
+			for dep in "${makedepends[@]}"; do
+				# lose the version comaparator, if any
+				depname=${dep%%[<>=]*}
+				if [ "$depname" = "$match" ]; then
+					echo "$d (makedepends)"
+				fi
+			done
+		fi
+		cd $tld
+	done
+}
+
+lddd () {
+	local ifs=$IFS
+	local IFS=':'
+
+	local libdirs='/lib:/usr/lib:/opt/qt/lib:/opt/kde/lib:/usr/lib/libfakeroot:/opt/NX/lib'
+	local extras=
+
+	local TEMPDIR=$(mktemp -d /tmp/lddd-script.XXXX)
+
+	echo 'Go out and drink some tea, this will take a while :) ...'
+	#  Check ELF binaries in the PATH and specified dir trees.
+	for tree in $PATH $libdirs $extras; do
+		echo DIR $tree
+
+		#  Get list of files in tree.
+		files=$(find $tree -type f ! -name '*.a' ! -name '*.la' ! -name '*.py*' ! -name '*.txt' ! -name '*.h' ! -name '*.ttf' ! \
+		-name '*.rb' ! -name '*.ko' ! -name '*.pc' ! -name '*.enc' ! -name '*.cf' ! -name '*.def' ! -name '*.rules' ! -name \
+		'*.cmi' ! -name  '*.mli' ! -name '*.ml' ! -name '*.cma' ! -name '*.cmx' ! -name '*.cmxa' ! -name '*.pod' ! -name '*.pm' \
+		! -name '*.pl' ! -name '*.al' ! -name '*.tcl' ! -name '*.bs' ! -name '*.o' ! -name '*.png' ! -name '*.gif' ! -name '*.cmo' \
+		! -name '*.cgi' ! -name '*.defs' ! -name '*.conf' ! -name '*_LOCALE' ! -name 'Compose' ! -name '*_OBJS' ! -name '*.msg' ! \
+		-name '*.mcopclass' ! -name '*.mcoptype')
+		IFS=$ifs
+		for i in $files; do
+			if [ `file $i | grep -c 'ELF'` -ne 0 ]; then
+				#  Is an ELF binary.
+				if [ `ldd $i 2>/dev/null | grep -c 'not found'` -ne 0 ]; then
+					#Missing lib.
+					echo "$i:" >> $TEMPDIR/raw.txt
+					ldd $i 2>/dev/null | grep 'not found' >> $TEMPDIR/raw.txt
+				fi
+			fi
+		done
+	done
+	grep '^/' $TEMPDIR/raw.txt | sed -e 's/://g' >> $TEMPDIR/affected-files.txt
+	# invoke pacman
+	for i in $(cat $TEMPDIR/affected-files.txt); do
+		pacman -Qo $i | awk '{print $4,$5}' >> $TEMPDIR/pacman.txt
+	done
+	# clean list
+	sort -u $TEMPDIR/pacman.txt >> $TEMPDIR/possible-rebuilds.txt
+
+	echo "Files saved to $TEMPDIR"
+}
+
+# This script rebuilds a list of packages in order
+# and reports anything that fails
+# 
+# Due to sudo usage, it is recommended to allow makechrootpkg
+# to be run with NOPASSWD in your sudoers file
+#
+# FIXME
+# Currently uses $(pwd)/rebuilds as the directory for rebuilding...
+# TODO make this work for community too
+
+# usage: $(basename $0) <chrootdir> <packages to rebuild>
+#   example: $(basename $0) ~/chroot readline bash foo bar baz
+rebuildpkgs () {
+	local chrootdir pkgs
+	chrootdir="$1"; shift
+	pkgs="$@"
+
+	local SVNPATH='svn+ssh://gerolde.archlinux.org/srv/svn-packages'
+
+	echo ":: Work will be done in $(pwd)/rebuilds"
+
+	local REBUILD_ROOT="$(pwd)/rebuilds"
+	mkdir -p "$REBUILD_ROOT"
+	cd "$REBUILD_ROOT"
+
+	/usr/bin/svn co -N $SVNPATH
+
+	FAILED=""
+	for pkg in $pkgs; do
+		cd "$REBUILD_ROOT/svn-packages"
+
+		echo ":: Building '$pkg'"
+		/usr/bin/svn update "$pkg"
+		if [ ! -d "$pkg/trunk" ]; then
+			FAILED="$FAILED $pkg"
+			echo ":: $pkg does not exist in SVN"
+			continue
+		fi
+		cd "$pkg/trunk/"
+
+		bump_pkgrel
+
+		if ! sudo makechrootpkg -u -d -r "$chrootdir" -- --noconfirm; then
+			FAILED="$FAILED $pkg"
+			echo ":: $pkg Failed!"
+		else
+			pkgfile=$(pkg_from_pkgbuild)
+			if [ -e "$pkgfile" ]; then
+				echo ":: $pkg Complete"
+			else
+				FAILED="$FAILED $pkg"
+				echo ":: $pkg Failed, no package built!"
+			fi
+		fi
+	done
+
+	cd "$REBUILD_ROOT"
+	if [ "$FAILED" != "" ]; then
+		echo 'Packages failed:'
+		for pkg in $FAILED; do
+			echo -e "\t$pkg"
+		done
+	fi
+
+	echo 'SVN pkgbumps in svn-packages/ - commit when ready'
+}
+
+#archbuild
+archbuild () {
+	local cmd="$(basename "${1%-build}")"
+	if [ "${cmd}" == 'multilib' ]; then
+		repo='multilib'
+		arch='x86_64'
+	else
+		repo=${cmd%-*}
+		arch=${cmd#*-}
+	fi
+	chroots='/var/tmp/archbuild'
+	clean_first=false
+	
+	while getopts 'cr:' arg; do
+		case "${arg}" in
+			c) clean_first=true ;;
+			r) chroots="$OPTARG" ;;
+			*) 	echo 'archbuild:'
+				echo '    -c         Recreate the chroot before building'
+				echo '    -r <dir>   Create chroots in this directory' ;;
+		esac
+	done
+	
+	if [ "$(uname -m)" == 'i686' -a "${arch}" != 'i686' ]; then
+		echo 'You can only build i686 packages on this system'
+		exit 1
+	fi
+
+	if [ "$(uname -m)" != 'x86_64' -a "${repo}" == 'multilib' ]; then
+		echo 'You can only build multilib packages on a x86_64 system'
+		exit 1
+	fi
+
+	if ${clean_first} || [ ! -d "${chroots}/${repo}-${arch}" ]; then
+		echo "Creating chroot for [${repo}] (${arch})..."
+		sudo rm -rf ${chroots}/${repo}-${arch}
+		sudo mkdir -p ${chroots}/${repo}-${arch}
+		setarch ${arch} sudo mkarchroot \
+			-C /usr/share/devtools/pacman-${repo}.conf \
+			-M /usr/share/devtools/makepkg-${arch}.conf \
+			${chroots}/${repo}-${arch}/root \
+			base base-devel sudo namcap abs
+	fi
+
+	echo "Building in chroot for [${repo}] (${arch})..."
+	setarch ${arch} sudo makechrootpkg -c -u -r ${chroots}/${repo}-${arch}
+}
+
+chrootstatus () {
+	local queue=('1' '2' '3' '4')
+	local used=0
+	local total=0
+
+	for i in ${queue[@]}; do
+		let total=total+1
+		if [ -f /var/lock/queue${i} ]; then
+			let used=used+1
+		fi
+	done
+
+	local open=$((${total} - ${used}))
+	echo
+	echo "${open} out of ${total} queue slots are available."
+}
+
+chrootupdate () {
+	trap '' 2 20
+
+	MUSER=$(echo $HOME | sed -e 's|/home/||')
+
+	if [ ! -f "$HOME/chroots/.x86_64" ]; then
+		echo 'updating x86_64 chroot'
+		touch $HOME/chroots/.x86_64
+		mkarchroot -u $HOME/chroots/x86_64/root
+		rm -f $HOME/chroots/.x86_64
+	else
+		echo 'x86_64 chroot in use, skipping'
+	fi
+
+	if [ ! -f "$HOME/chroots/.x86_64-testing" ]; then
+		echo 'updating x86_64 testing chroot'
+		touch $HOME/chroots/.x86_64-testing
+		mkarchroot -u $HOME/chroots/x86_64-testing/root
+		rm -f $HOME/chroots/.x86_64-testing
+	else
+		echo 'x86_64 testing chroot in use, skipping'
+	fi
+
+	if [ ! -f "$HOME/chroots/.i686" ]; then
+		echo 'updating i686 chroot'
+		touch $HOME/chroots/.i686
+		linux32 mkarchroot -u $HOME/chroots/i686/root
+		rm -f $HOME/chroots/.i686
+	else
+		echo 'i686 chroot in use, skipping'
+	fi
+
+	if [ ! -f "$HOME/chroots/.i686-testing" ]; then
+		echo 'updating i686 testing chroot'
+		touch $HOME/chroots/.i686-testing
+		linux32 mkarchroot -u $HOME/chroots/i686-testing/root
+		rm -f $HOME/chroots/.i686-testing
+	else
+		echo 'i686 testing chroot in use, skipping'
+	fi
+}
+
+# commitpkg
+commitpkg () {
+	local cmd="$1"
+
+	if [ ! -f PKGBUILD ]; then
+		abort 'No PKGBUILD file'
+	fi
+
+	. PKGBUILD
+	pkgbase=${pkgbase:-$pkgname}
+
+	# set up repo-specific opts depending on how we were called
+	server='gerolde.archlinux.org'
+	if [ "$cmd" == 'extrapkg' ]; then
+		repo='extra'
+	elif [ "$cmd" == 'corepkg' ]; then
+		repo='core'
+	elif [ "$cmd" == 'testingpkg' ]; then
+		repo='testing'
+	elif [ "$cmd" == 'stagingpkg' ]; then
+		repo='staging'
+	elif [ "$cmd" == 'communitypkg' ]; then
+		repo='community'
+		server='aur.archlinux.org'
+	elif [ "$cmd" == 'community-testingpkg' ]; then
+		repo='community-testing'
+		server='aur.archlinux.org'
+	elif [ "$cmd" == 'multilibpkg' ]; then
+		repo='multilib'
+		server='aur.archlinux.org'
+	else
+		if [ $# -eq 0 ]; then
+			abort 'usage: commitpkg <reponame> [-l limit] [commit message]'
+		fi
+		repo="$2"
+		shift
+	fi
+
+	# check if all local source files are under version control
+	(for s in ${source[@]}; do
+		echo $s | grep -vq '://' && \
+		svn status $s | grep -q '?' && \
+		abort "$s is not under version control"
+	done) || true
+
+	# check if changelog and install files are under version control
+	(for i in 'changelog' 'install'; do
+		filelist=$(sed -n "s/^[[:space:]]*$i=//p" PKGBUILD)
+		for file in $filelist; do
+			# evaluate any bash variables used
+			eval file=${file}
+			if svn status ${file} | grep -q '?'; then
+				abort "${file} is not under version control"
+			fi
+		done
+	done) || true
+
+	# see if any limit options were passed, we'll send them to rsync
+	unset rsyncopts
+	if [ "$1" = '-l' ]; then
+		rsyncopts="--bwlimit=$2"
+		shift 2
+	fi
+
+	echo -n 'committing changes to trunk...'
+	if [ -n "$1" ]; then
+		svn commit -q -m "upgpkg: $pkgbase $pkgver-$pkgrel $1" || abort
+	else
+		svn commit -q || abort
+	fi
+	echo 'done'
+
+	for _arch in ${arch[@]}; do
+		for _pkgname in ${pkgname[@]}; do
+			pkgfile=$(getpkgfile "$_pkgname-$pkgver-$pkgrel-${_arch}".pkg.tar.* 2>/dev/null)
+			pkgdestfile=$(getpkgfile "$PKGDEST/$_pkgname-$pkgver-$pkgrel-${_arch}".pkg.tar.* 2>/dev/null)
+
+			if [ ! -f "$pkgfile" -a -f "$pkgdestfile" ]; then
+				pkgfile="$pkgdestfile"
+			elif [ ! -f "$pkgfile" ]; then
+				echo "skipping ${_arch}"
+				continue 2
+			fi
+
+			echo -n 'uploading '
+			rsync -p --chmod 'ug=rw,o=r' -c -h -L --progress $rsyncopts --partial "${pkgfile}" -e ssh $server:staging/$repo || abort
+		done
+		archrelease $repo-${_arch} || abort
+	done
+
+	if [ "${arch[*]}" == 'any' ]; then
+		if [ -d ../repos/$repo-i686 -a -d ../repos/$repo-x86_64 ]; then
+			pushd ../repos/ >/dev/null
+			echo -n "removing $repo-i686 and $repo-x86_64..."
+			svn rm $repo-i686
+			svn rm $repo-x86_64
+			svn commit -q -m "removed $repo-i686 and $repo-x86_64 for $pkgname"
+			echo 'done'
+			popd >/dev/null
+		fi
+	fi
+}
+
+case "$1" in
+	commitpkg)
+		commitpkg $@ ;;
+	archbuild)
+		archbuild $@ ;;
+	archco)
+		archco $@ ;;
+	archrm)
+		archrm $@ ;;
+	communityco)
+		communityco $@ ;;
+	archrelease)
+		archrelease $@ ;;
+esac

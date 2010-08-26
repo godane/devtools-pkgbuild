@@ -131,7 +131,7 @@ done
 
 [ "$makearch" == "i686" ] && RUNAS="linux32"
 
-if [ "$usetesting" != "0" ]; then
+if [ "$usetesting" != '0' ]; then
 	makearch="$makearch-testing"
 fi
 
@@ -295,9 +295,9 @@ fi
 for f in "${copydir}"/srcdest/*; do
 	[ -e "$f" ] || continue
 	if [ -d "$SRCDEST" ]; then
-		mv "$f" "${SRCDEST}"
+		rsync -r "$f" "${SRCDEST}"
 	else
-		mv "$f" "${WORKDIR}"
+		rsync -r "$f" "${WORKDIR}"
 	fi
 done
 
