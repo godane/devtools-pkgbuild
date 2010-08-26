@@ -46,11 +46,16 @@ elif [ "$cmd" == 'corepkg' ]; then
 	repo='core'
 elif [ "$cmd" == 'testingpkg' ]; then
 	repo='testing'
+elif [ "$cmd" == 'stagingpkg' ]; then
+	repo='staging'
 elif [ "$cmd" == 'communitypkg' ]; then
 	repo='community'
 	server='aur.archlinux.org'
 elif [ "$cmd" == 'community-testingpkg' ]; then
 	repo='community-testing'
+	server='aur.archlinux.org'
+elif [ "$cmd" == 'multilibpkg' ]; then
+	repo='multilib'
 	server='aur.archlinux.org'
 else
 	if [ $# -eq 0 ]; then
@@ -69,7 +74,7 @@ done) || true
 
 # check if changelog and install files are under version control
 (for i in 'changelog' 'install'; do
- 	filelist=$(sed -n "s/^[[:space:]]*$i=//p" PKGBUILD)
+	filelist=$(sed -n "s/^[[:space:]]*$i=//p" PKGBUILD)
 	for file in $filelist; do
 		# evaluate any bash variables used
 		eval file=${file}
