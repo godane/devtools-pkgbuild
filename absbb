@@ -1,0 +1,228 @@
+#!/bin/bash
+
+if [ "$EUID" != "0" ]; then
+	echo 'This script must be run as root.'
+	exit 1
+fi
+
+# Source makepkg.conf; fail if it is not found
+if [ -r ~/.makepkg.conf ]; then
+	source ~/.makepkg.conf
+elif [ -r '/etc/makepkg.conf' ]; then
+	source '/etc/makepkg.conf'
+else
+	echo 'No makepkg.conf found!'
+	exit 1
+fi
+
+if [ -r ~/.abs.conf ]; then
+	source ~/.abs.conf
+elif [ -r '/etc/abs.conf' ]; then
+	source '/etc/abs.conf'
+else
+	echo '/etc/abs.conf not found'
+	exit 1
+fi
+
+PKGLIST="$1"
+
+trap rmlock 2 20
+
+maxqueue='4'
+rmlock() {
+	#rm -f $CHROOTLOCK
+	while [ $maxqueue -ge 1 ]; do
+		if [ ! -f /var/lock/queue${maxqueue} ]; then
+			let maxqueue=maxqueue-1
+		else
+			rm -f /var/lock/queue${maxqueue}
+			break
+		fi
+	done
+}
+
+counter=1
+while [ $counter -le $maxqueue ]; do
+	if [ -f /var/lock/queue${counter} ]; then
+		let counter=counter+1
+	else
+		touch /var/lock/queue${counter}
+		break
+	fi
+	if [ $counter -gt $maxqueue ]; then
+		echo 'All queue slots are busy.'
+		exit 0
+	fi
+done
+
+
+mkchrootpkg () {
+	local chrootdir="${1}"
+	local makearch="${2}"
+	local pkglist="${3}"
+	local work="work"
+	local pkgdest="${work}/pkgdest"
+	local srcdest="${work}/srcdest"
+	local repodest="${work}/repodest"
+	local build="${work}/build"
+	local buildlogs="${work}/logs"
+	local home_packages="$HOME/packages"
+	local home_sources="$HOME/sources"
+	local pkgbuild="${work}/pkgbuild"
+	
+	if [ ! -d "$chrootdir" ]; then
+		echo "No chroot dir defined, or invalid path '$chrootdir'"
+		rmlock
+		exit 1
+	fi
+	
+	[ -d ${chrootdir}/${pkgdest} ] || mkdir -p ${chrootdir}/${pkgdest}
+	[ -d ${chrootdir}/${srcdest} ] || mkdir -p ${chrootdir}/${srcdest}
+	[ -d ${chrootdir}/${build} ] || mkdir -p ${chrootdir}/${build}
+	[ -d ${chrootdir}/${buildlogs} ] || mkdir -p ${chrootdir}/${buildlogs}
+	[ -d ${chrootdir}/${pkgbuild} ] || mkdir -p ${chrootdir}/${pkgbuild}
+	[ -d ${chrootdir}/${repodest} ] || mkdir -p ${chrootdir}/${repodest}
+	#[ -d ${home_packages} ] || mkdir -p ${home_packages}
+	#[ -d ${home_sources} ] || mkdir -p ${home_sources}
+	
+	if [ -f "${pkglist}" ]; then
+		cat "${pkglist}" | grep -v "#" | while read pkg; do
+			pkg1="$ABSROOT*/${pkg}"
+			package="$(find ${pkg1} -type d)"
+			if [ -d "${package}" ]; then
+				echo "${package}"
+				cp -af "${package}" "${chrootdir}/${pkgbuild}"
+			fi
+		done
+	else
+		echo "No $pkglist file found."
+		exit 1
+	fi
+
+	[ -z ${SRCDEST} ] && SRCDEST=$(grep '^SRCDEST=' /etc/makepkg.conf | cut -d= -f2)
+	[ -z ${PKGDEST} ] && PKGDEST=$(grep '^PKGDEST=' /etc/makepkg.conf | cut -d= -f2)
+
+	[ -d "${chrootdir}/${pkgdest}" ] || mkdir "${chrootdir}/${pkgdest}"
+	if ! grep "PKGDEST=/${pkgdest}" "${chrootdir}/etc/makepkg.conf" >/dev/null 2>&1; then
+		echo "PKGDEST=/${pkgdest}" >> "${chrootdir}/etc/makepkg.conf"
+	fi
+
+	[ -d "${chrootdir}/${srcdest}" ] || mkdir "${chrootdir}/${srcdest}"
+	if ! grep "SRCDEST=/${srcdest}" "${chrootdir}/etc/makepkg.conf" >/dev/null 2>&1; then
+		echo "SRCDEST=/${srcdest}" >> "${chrootdir}/etc/makepkg.conf"
+	fi
+
+	# Set target CARCH as it might be used withing the PKGBUILD to select correct sources
+	CARCH=$(eval $(grep '^CARCH=' "${chrootdir}/etc/makepkg.conf"))
+
+	chown -R nobody "${chrootdir}/${work}"
+
+	if ! grep "^nobody" "${chrootdir}/etc/sudoers" >/dev/null 2>&1; then
+		touch "${chrootdir}/etc/sudoers"
+		echo 'nobody	ALL=(ALL) NOPASSWD: ALL' >> "${chrootdir}/etc/sudoers"
+		chmod 440 "${chrootdir}/etc/sudoers"
+	fi
+
+	
+(cat <<EOF
+%DATABASE%
+$USER-repo.db.tar.gz
+
+%REPO_DIR%
+repodest
+
+%BUILD_DIR%
+build
+
+%MAKEPKG_BINARY%
+-r -s -f
+
+%LOCAL_PKGS%
+EOF
+) > "${chrootdir}/${work}/REPOBUILD"
+
+if [ -f "${pkglist}" ]; then
+	cat "${pkglist}" | grep -v "#" | while read pkgpath; do
+		echo "/${pkgbuild}/${pkgpath}" >> "${chrootdir}/${work}/REPOBUILD"
+	done
+fi
+
+#This is a little gross, but this way the script is recreated every time in the
+#working copy
+(cat <<EOF
+#!/bin/bash
+export LANG=$LANG
+cd /$work
+export HOME=/$work
+sudo -u nobody makerepo || touch BUILD_FAILED
+[ -f BUILD_FAILED ] && exit 1
+#which namcap &>/dev/null && namcap /$build/*/PKGBUILD /$pkgdest/*.pkg.tar.* > /$buildlogs/namcap.log
+exit 0
+EOF
+) > "${chrootdir}/chrootbuild"
+	chmod +x "${chrootdir}/chrootbuild"
+
+}
+
+#archbuild
+archbuild () {
+	local cmd="${1%-build}"
+	local pkglist="${2}"
+	
+	if [ "${cmd}" == 'multilib' ]; then
+		repo='multilib'
+		arch='x86_64'
+	else
+		repo=${cmd%-*}
+		arch=${cmd#*-}
+	fi
+	chroots='/var/tmp/archbuild'
+	clean_first=false
+	
+	while getopts 'cr:' arg; do
+		case "${arg}" in
+			c) clean_first=true ;;
+			r) chroots="$OPTARG" ;;
+			*) 	echo 'archbuild:'
+				echo '    -c         Recreate the chroot before building'
+				echo '    -r <dir>   Create chroots in this directory' ;;
+		esac
+	done
+	
+	if [ "$(uname -m)" == 'i686' -a "${arch}" != 'i686' ]; then
+		echo 'You can only build i686 packages on this system'
+		exit 1
+	fi
+
+	if [ "$(uname -m)" != 'x86_64' -a "${repo}" == 'multilib' ]; then
+		echo 'You can only build multilib packages on a x86_64 system'
+		exit 1
+	fi
+
+	[ "$arch" == "i686" ] && RUNAS="linux32"
+	
+	if ${clean_first} || [ ! -d "${chroots}/${repo}-${arch}" ]; then
+		echo "Creating chroot for [${repo}] (${arch})..."
+		sudo rm -rf ${chroots}/${repo}-${arch}
+		sudo mkdir -p ${chroots}/${repo}-${arch}
+		setarch ${arch} sudo mkarchroot \
+			-C /usr/share/devtools/pacman-${repo}.conf \
+			-M /usr/share/devtools/makepkg-${arch}.conf \
+			${chroots}/${repo}-${arch}/root \
+			base base-devel sudo namcap abs perl-xyne-arch makerepo
+	fi
+	
+	if [ -f /usr/share/devtools/mirrorlist ]; then
+		cp -f "/usr/share/devtools/mirrorlist" "${chroots}/${repo}-${arch}/root/etc/pacman.d"
+	fi
+	
+	mkchrootpkg "${chroots}/${repo}-${arch}/root" "${arch}" "${pkglist}"
+	echo "Building in chroot for [${repo}] (${arch})..."
+	setarch ${arch} mkarchroot -r "/chrootbuild" "${chroots}/${repo}-${arch}/root"
+}
+
+archbuild extra-i686-build "$PKGLIST"
+
+rmlock
+
+exit 0
