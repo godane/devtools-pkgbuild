@@ -6,27 +6,56 @@ if [ "$EUID" != "0" ]; then
 fi
 
 # Source makepkg.conf; fail if it is not found
-if [ -r ~/.makepkg.conf ]; then
-	source ~/.makepkg.conf
-elif [ -r '/etc/makepkg.conf' ]; then
+if [ -f "$HOME/.makepkg.conf" ]; then
+	source "$HOME/.makepkg.conf"
+elif [ -f '/etc/makepkg.conf' ]; then
 	source '/etc/makepkg.conf'
 else
 	echo 'No makepkg.conf found!'
 	exit 1
 fi
 
-if [ -r ~/.abs.conf ]; then
-	source ~/.abs.conf
-elif [ -r '/etc/abs.conf' ]; then
+if [ -f "$HOME/.abs.conf" ]; then
+	source "$HOME/.abs.conf"
+elif [ -f '/etc/abs.conf' ]; then
 	source '/etc/abs.conf'
 else
-	echo '/etc/abs.conf not found'
+	echo 'No abs.conf found'
 	exit 1
 fi
 
-PKGLIST="$1"
+if [ -f "$HOME/.absbb.conf" ]; then
+	source "$HOME/.absbb.conf"
+elif [ -f '/etc/absbb.conf' ]; then
+	source '/etc/absbb.conf'
+else
+	echo 'No absbb.conf found.'
+fi
+
+work="work"
+pkgdest="${work}/pkgdest"
+srcdest="${work}/srcdest"
+buildlogs="${work}/logs"
+repodest="${work}/repodest"
+
+PKGLIST="$2"
 
 trap rmlock 2 20
+
+usage () {
+	echo -e "Archlinux build bot tool\n
+\033[1mUsage: \033[0m `basename $0` [command] pkg.list
+\033[1mCommands: \033[0m\n
+  usage                   Print this short usage and command list.
+  extra-i686-build        Build chroot extra i686.
+  extra-x86_64-build      Build chroot extra x86_64.
+  testing-i686-build      Build chroot testing i686.
+  testing-x86_64-build    Build chroot testing x86_64.
+  staging-i686-build      Build chroot staging i686.
+  staging-x86_64-build    Build chroot staging x86_64.
+  multilib-build          Build chroot multilib. (x86_64 only)"
+  exit 1
+}
 
 maxqueue='4'
 rmlock() {
@@ -56,18 +85,37 @@ while [ $counter -le $maxqueue ]; do
 done
 
 
+chroot_mount () {
+	local chrootdir=$1
+	[ -d "${HOME_PKGS}" ] || mkdir -p "${HOME_PKGS}"
+	[ -d "${chrootdir}/${pkgdest}" ] || mkdir -p "${chrootdir}/${pkgdest}"
+	mount -o bind "${HOME_PKGS}" "${chrootdir}/${pkgdest}"
+	[ -d "${HOME_SOURCES}" ] || mkdir -p "${HOME_SOURCES}"
+	[ -d "${chrootdir}/${srcdest}" ] || mkdir -p "${chrootdir}/${srcdest}"
+	mount -o bind "${HOME_SOURCES}" "${chrootdir}/${srcdest}" 
+	[ -d "${HOME_REPO}" ] || mkdir -p "${HOME_REPO}"
+	[ -d "${chrootdir}/${repodest}" ] || mkdir -p "${chrootdir}/${repodest}"
+	mount -o bind "${HOME_REPO}" "${chrootdir}/${repodest}"
+	[ -d "${HOME_LOGS}" ] || mkdir -p "${HOME_LOGS}"
+	[ -d "${chrootdir}/${buildlogs}" ] || mkdir -p "${chrootdir}/${buildlogs}"
+	mount -o bind "${HOME_LOGS}" "${chrootdir}/${buildlogs}" 
+	
+	trap "chroot_umount ${chrootdir}" 0 1 2 15
+}
+
+chroot_umount () {
+	local chrootdir=$1
+	umount "${chrootdir}/${pkgdest}"
+	umount "${chrootdir}/${srcdest}"
+	umount "${chrootdir}/${repodest}"
+	umount "${chrootdir}/${buildlogs}"
+}
+
 mkchrootpkg () {
 	local chrootdir="${1}"
 	local makearch="${2}"
 	local pkglist="${3}"
-	local work="work"
-	local pkgdest="${work}/pkgdest"
-	local srcdest="${work}/srcdest"
-	local repodest="${work}/repodest"
 	local build="${work}/build"
-	local buildlogs="${work}/logs"
-	local home_packages="$HOME/packages"
-	local home_sources="$HOME/sources"
 	local pkgbuild="${work}/pkgbuild"
 	
 	if [ ! -d "$chrootdir" ]; then
@@ -82,8 +130,6 @@ mkchrootpkg () {
 	[ -d ${chrootdir}/${buildlogs} ] || mkdir -p ${chrootdir}/${buildlogs}
 	[ -d ${chrootdir}/${pkgbuild} ] || mkdir -p ${chrootdir}/${pkgbuild}
 	[ -d ${chrootdir}/${repodest} ] || mkdir -p ${chrootdir}/${repodest}
-	#[ -d ${home_packages} ] || mkdir -p ${home_packages}
-	#[ -d ${home_sources} ] || mkdir -p ${home_sources}
 	
 	if [ -f "${pkglist}" ]; then
 		cat "${pkglist}" | grep -v "#" | while read pkg; do
@@ -129,13 +175,13 @@ mkchrootpkg () {
 $USER-repo.db.tar.gz
 
 %REPO_DIR%
-repodest
+/$repodest
 
 %BUILD_DIR%
-build
+/$build
 
-%MAKEPKG_BINARY%
--r -s -f
+%MAKEPKG_ARGS%
+$MKPKG_ARGS
 
 %LOCAL_PKGS%
 EOF
@@ -154,13 +200,25 @@ fi
 export LANG=$LANG
 cd /$work
 export HOME=/$work
+if [ -d /$repodest ]; then
+	rm -R /$repodest/*
+fi
+if [ -d /$build ]; then
+	rm -R /$build/*
+fi
 sudo -u nobody makerepo || touch BUILD_FAILED
 [ -f BUILD_FAILED ] && exit 1
-#which namcap &>/dev/null && namcap /$build/*/PKGBUILD /$pkgdest/*.pkg.tar.* > /$buildlogs/namcap.log
-exit 0
 EOF
 ) > "${chrootdir}/chrootbuild"
-	chmod +x "${chrootdir}/chrootbuild"
+	
+if [ -f "${pkglist}" ]; then
+	cat "${pkglist}" | grep -v "#" | while read pkg; do
+		echo "which namcap &>/dev/null && namcap /$build/$pkg/PKGBUILD /$pkgdest/$pkg-*.pkg.tar.* > /$buildlogs/$pkg-namcap.log" >> "${chrootdir}/chrootbuild"
+	done
+fi
+
+echo "exit 0" >> "${chrootdir}/chrootbuild"
+chmod +x "${chrootdir}/chrootbuild"
 
 }
 
@@ -176,7 +234,7 @@ archbuild () {
 		repo=${cmd%-*}
 		arch=${cmd#*-}
 	fi
-	chroots='/var/tmp/archbuild'
+	chroots="${CHROOT_BASE_DIR}"
 	clean_first=false
 	
 	while getopts 'cr:' arg; do
@@ -216,12 +274,31 @@ archbuild () {
 		cp -f "/usr/share/devtools/mirrorlist" "${chroots}/${repo}-${arch}/root/etc/pacman.d"
 	fi
 	
+	chroot_mount ${chroots}/${repo}-${arch}/root
 	mkchrootpkg "${chroots}/${repo}-${arch}/root" "${arch}" "${pkglist}"
 	echo "Building in chroot for [${repo}] (${arch})..."
 	setarch ${arch} mkarchroot -r "/chrootbuild" "${chroots}/${repo}-${arch}/root"
 }
 
-archbuild extra-i686-build "$PKGLIST"
+ACTION=$1
+case "$ACTION" in
+	extra-i686-build)
+		archbuild extra-i686-build ${PKGLIST} ;;
+	extra-x86_64-build)
+		archbuild extra-x86_64-build ${PKGLIST} ;;
+	testing-i686-build)
+		archbuild testing-i686-build ${PKGLIST} ;;
+	testing-x86_64-build)
+		archbuild testing-x86_64-build ${PKGLIST} ;;
+	staging-i686-build)
+		archbuild staging-i686-build ${PKGLIST} ;;
+	staging-x86_64-build)
+		archbuild staging-x86_64-build ${PKGLIST} ;;
+	multilib-build)
+		archbuild multilib-build ${PKGLIST} ;;
+	*)
+		usage ;;
+esac
 
 rmlock
 
